@@ -12,6 +12,7 @@
 #include <string>
 #include <cstring>
 #include <memory>
+#include <iostream>
 
 #include "../include/common.hpp"
 
@@ -40,179 +41,94 @@ namespace mtb
 		int raw_max_size = MTB_BUF_SIZE * (2 * sizeof(uint64_t) + type_size);
 		std::unique_ptr<char[]> raw(new char[raw_max_size]);
 
-		switch (datatype)
+		for (uint64_t k = 0; k < nz; k += batch_size)
 		{
-			case kPattern:
-				for (uint64_t k = 0; k < nz; k += batch_size)
-				{
-					char *ptr = raw.get();
+			char *ptr = raw.get();
 
-					// Read a large data block from the file
-					ifile.read(raw.get(), raw_max_size);
+			// Read a large data block from the file
+			ifile.read(raw.get(), raw_max_size);
 
-					for (int i = 0; i < batch_size && i + k < nz; i += step_size)
-					{
-						uint64_t row, col;
+			for (int i = 0; i < batch_size && i + k < nz; i += step_size)
+			{
+				uint64_t row, col;
 
-						std::memcpy(&row, ptr, sizeof(uint64_t));
-						ptr += sizeof(uint64_t);
+				std::memcpy(&row, ptr, sizeof(uint64_t));
+				ptr += sizeof(uint64_t);
 
-						std::memcpy(&col, ptr, sizeof(uint64_t));
-						ptr += sizeof(uint64_t);
+				std::memcpy(&col, ptr, sizeof(uint64_t));
+				ptr += sizeof(uint64_t);
 
-						data[k + i].col = col;
-						data[k + i].row = row;
-						data[k + i].val = (T) 1.0;
+				data[k + i].col = col;
+				data[k + i].row = row;
 
-						if (mat_type == kSymmetricSparse)
-                        {
-							std::swap(row, col);
-							data[k + i + 1].col = col;
-							data[k + i + 1].row = row;
-							data[k + i + 1].val = (T) 1.0;
-                        }
-					}
-				}
-				break;
+				switch (datatype)
+                {
+	                case kPattern:
+	                	data[k + i].val = (T) 1.0;
+	                break;
 
-			case kInteger:
-				for (uint64_t k = 0; k < nz; k += batch_size)
-				{
-					char *ptr = raw.get();
+	                case kInteger:
 
-					// Read a large data block from the file
-					ifile.read(raw.get(), raw_max_size);
-
-					for (int i = 0; i < batch_size && i + k < nz; i += step_size)
-					{
-						uint64_t row, col;
-
-						union
+	                	// Assuming LITTLE ENDIAN
+	                	union
 						{
 							int64_t integer;
-							char bytes[sizeof(uint64_t)];
+							char bytes[sizeof(int64_t)];
 						} val;
-
-						std::memcpy(&row, ptr, sizeof(uint64_t));
-						ptr += sizeof(uint64_t);
-
-						std::memcpy(&col, ptr, sizeof(uint64_t));
-						ptr += sizeof(uint64_t);
 
 						std::memcpy(&val.bytes, ptr, type_size);
 						ptr += type_size;
 
-						data[k + i].col = col;
-						data[k + i].row = row;
 						data[k + i].val = val.integer;
 
-						if (mat_type == kSymmetricSparse)
-                        {
-							std::swap(row, col);
-							data[k + i + 1].col = col;
-							data[k + i + 1].row = row;
-							data[k + i + 1].val = val.integer;
-                        }
-					}
-				}
-				break;
+	                break;
 
-			case kReal:
-				for (uint64_t k = 0; k < nz; k += batch_size)
-				{
-					char *ptr = raw.get();
+	                case kReal:
 
-					// Read a large data block from the file
-					ifile.read(raw.get(), raw_max_size);
-
-					for (int i = 0; i < batch_size && i + k < nz; i += step_size)
-					{
-						uint64_t row, col;
-
+	                if (type_size == 8)
+                    {
 						union
 						{
-								double fp;
+							double fp;
 							char bytes[sizeof(double)];
 						} val;
 
-						std::memcpy(&row, ptr, sizeof(uint64_t));
-						ptr += sizeof(uint64_t);
+						std::memcpy(&val.bytes, ptr, type_size);
+						ptr += type_size;
 
-						std::memcpy(&col, ptr, sizeof(uint64_t));
-						ptr += sizeof(uint64_t);
+						data[k + i].val = val.fp;
+
+                    } else
+                    {
+						union
+						{
+							float fp;
+							char bytes[sizeof(float)];
+						} val;
 
 						std::memcpy(&val.bytes, ptr, type_size);
 						ptr += type_size;
 
-						data[k + i].col = col;
-						data[k + i].row = row;
 						data[k + i].val = val.fp;
+                    }
 
-						if (mat_type == kSymmetricSparse)
-                        {
-							std::swap(row, col);
-							data[k + i + 1].col = col;
-							data[k + i + 1].row = row;
-							data[k + i + 1].val = val.fp;
-                        }
-					}
-				}
-				break;
+	                break;
 
-			case kComplex:
-				if constexpr (is_complex<T>())
-				{
-					for (uint64_t k = 0; k < nz; k += batch_size)
-					{
-						char *ptr = raw.get();
+	                default:
+	                	throw std::runtime_error("Error: Unsupported MTB type!");
+	                break;
+                }
 
-						// Read a large data block from the file
-						ifile.read(raw.get(), raw_max_size);
-
-						for (int i = 0; i < batch_size && i + k < nz; i += step_size)
-						{
-							uint64_t row, col;
-
-							union
-							{
-								double fp;
-								char bytes[sizeof(double)];
-							} real, imag;
-
-							std::memcpy(&row, ptr, sizeof(uint64_t));
-							ptr += sizeof(uint64_t);
-
-							std::memcpy(&col, ptr, sizeof(uint64_t));
-							ptr += sizeof(uint64_t);
-
-							std::memcpy(&real.bytes, ptr, type_size);
-							ptr += type_size;
-
-							std::memcpy(&imag.bytes, ptr, type_size);
-							ptr += type_size;
-
-							data[k + i].col = col;
-							data[k + i].row = row;
-							data[k + i].val.real = real.fp;
-							data[k + i].val.imag = imag.fp;
-
-							if (mat_type == kSymmetricSparse)
-	                        {
-								std::swap(row, col);
-								data[k + i + 1].col = col;
-								data[k + i + 1].row = row;
-								data[k + i + 1].val.real = real.fp;
-								data[k + i + 1].val.imag = imag.fp;
-	                        }
-						}
-					}
-				}
-				break;
-
-			default:
-				throw std::runtime_error("Error: Unsupported MTB datatype");
-				break;
+				if (mat_type == kSymmetricSparse)
+                {
+					std::swap(row, col);
+					data[k + i + 1].col = col;
+					data[k + i + 1].row = row;
+					data[k + i + 1].val = data[k + i].val;
+                }
+			}
 		}
+
 	}
 
 	template<typename T>
@@ -222,126 +138,54 @@ namespace mtb
 		int raw_max_size = MTB_BUF_SIZE * (2 * sizeof(uint64_t) + type_size);
 		std::unique_ptr<char[]> raw(new char[raw_max_size]);
 
-		switch (datatype)
+		for (uint64_t k = 0; k < nz; k += MTB_BUF_SIZE)
 		{
-			case kPattern:
-				for (uint64_t k = 0; k < nz; k += MTB_BUF_SIZE)
-				{
-					char *ptr = raw.get();
+			char *ptr = raw.get();
 
-					for (int i = 0; i < MTB_BUF_SIZE && i + k < nz; ++i)
-					{
-						std::memcpy(&ptr, &data[k + i].row, sizeof(uint64_t));
-						ptr += sizeof(uint64_t);
+			for (int i = 0; i < MTB_BUF_SIZE && i + k < nz; ++i)
+			{
+				std::memcpy(ptr, &data[k + i].row, sizeof(uint64_t));
+				ptr += sizeof(uint64_t);
 
-						std::memcpy(&ptr, &data[k + i].col, sizeof(uint64_t));
-						ptr += sizeof(uint64_t);
-					}
-
-					auto size = ptr - raw.get();
-					ofile.write(raw.get(), size);
-
-				}
-				break;
-
-			case kInteger:
-				for (uint64_t k = 0; k < nz; k += MTB_BUF_SIZE)
-				{
-					char *ptr = raw.get();
-
-					for (int i = 0; i < MTB_BUF_SIZE && i + k < nz; ++i)
-					{
-						std::memcpy(&ptr, &data[k + i].row, sizeof(uint64_t));
-						ptr += sizeof(uint64_t);
-
-						std::memcpy(&ptr, &data[k + i].col, sizeof(uint64_t));
-						ptr += sizeof(uint64_t);
-
-						union
-						{
-							int64_t integer;
-							char bytes[sizeof(uint64_t)];
-						} val;
-
-						val.integer = data[k + i].val;
-						std::memcpy(ptr, &val.bytes, type_size);
-						ptr += type_size;
-					}
-
-					auto size = ptr - raw.get();
-					ofile.write(raw.get(), size);
-				}
-				break;
-
-			case kReal:
-				for (uint64_t k = 0; k < nz; k += MTB_BUF_SIZE)
-				{
-					char *ptr = raw.get();
-
-					for (int i = 0; i < MTB_BUF_SIZE && i + k < nz; ++i)
-					{
-						std::memcpy(&ptr, &data[k + i].row, sizeof(uint64_t));
-						ptr += sizeof(uint64_t);
-
-						std::memcpy(&ptr, &data[k + i].col, sizeof(uint64_t));
-						ptr += sizeof(uint64_t);
-
-						union
-						{
-							double fp;
-							char bytes[sizeof(double)];
-						} val;
-
-						val.fp = data[k + i].val;
-						std::memcpy(ptr, &val.bytes, type_size);
-						ptr += type_size;
-					}
-
-					auto size = ptr - raw.get();
-					ofile.write(raw.get(), size);
-				}
-				break;
-
-			case kComplex:
+				std::memcpy(ptr, &data[k + i].col, sizeof(uint64_t));
+				ptr += sizeof(uint64_t);
 
 				if constexpr (is_complex<T>())
 				{
-					for (uint64_t k = 0; k < nz; k += MTB_BUF_SIZE)
+					union
 					{
-						char *ptr = raw.get();
+						typename T::value_type val;
+						char bytes[sizeof(typename T::value_type)];
+					} real, imag;
 
-						for (int i = 0; i < MTB_BUF_SIZE && i + k < nz; ++i)
+					real.val = data[k + i].val.real();
+					imag.val = data[k + i].val.imag();
+
+					std::memcpy(ptr, real.bytes, type_size);
+					ptr += type_size;
+
+					std::memcpy(ptr, imag.bytes, type_size);
+					ptr += type_size;
+
+				} else
+				{
+					if (datatype != kPattern)
+					{
+						union
 						{
-							std::memcpy(&ptr, &data[k + i].row, sizeof(uint64_t));
-							ptr += sizeof(uint64_t);
+							T val;
+							char bytes[sizeof(T)];
+						} val;
 
-							std::memcpy(&ptr, &data[k + i].col, sizeof(uint64_t));
-							ptr += sizeof(uint64_t);
-
-							union
-							{
-								double fp;
-								char bytes[sizeof(double)];
-							} real, imag;
-
-							real.fp = data[k + i].val.real;
-							std::memcpy(ptr, &real.bytes, type_size);
-							ptr += type_size;
-
-							imag.fp = data[k + i].val.imag;
-							std::memcpy(ptr, &imag.bytes, type_size);
-							ptr += type_size;
-						}
-
-						auto size = ptr - raw.get();
-						ofile.write(raw.get(), size);
+						val.val = data[k + i].val;
+						std::memcpy(ptr, val.bytes, type_size);
+						ptr += type_size;
 					}
 				}
-				break;
+			}
 
-			default:
-				throw std::runtime_error("Error: Unsupported MTB datatype");
-				break;
+			auto size = ptr - raw.get();
+			ofile.write(raw.get(), size);
 		}
 	}
 

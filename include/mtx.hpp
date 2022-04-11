@@ -18,7 +18,7 @@ namespace mtb
 	void mtx_read_header(std::ifstream &ifile, std::vector<std::string> &properties,
 	                     uint64_t &nrows, uint64_t &ncols, uint64_t &nz);
 
-	void mtx_to_mtb(std::string mtx_file, std::string mtb_file);
+	void mtx_to_mtb(std::string mtx_file, std::string mtb_file, bool sort_data);
 }   // namespace mtb
 
 #endif /* _MTX_HANDLER_HPP_ */
