@@ -11,7 +11,7 @@ The MTB file is composed by an header with the matrix properties, followed by th
 
 The first byte in the header indicates the matrix type and includes information about its symmetry. Here *general matrices* only indicates that the file format do not take advantage of any symmetry properties. For symmetric matrices, the file will **only** store the entries at or below the diagonal. 
 
-Codes:
+Types:
 
 ```
 General Sparse Matrices: 0x11
@@ -22,7 +22,7 @@ Symmetric Sparse Matrices: 0x12
 
 The second byte indicates the datatype of each entry. The first 4 bits corresponds to the class of datatype, while the other 4 bits, to its size (in bytes). For example, a 32-bit floating-point (i.e., a real) number is codified as `0x24`. In the *pattern* datatype, the file *only* indicates the position of the non-zero entries (we assume that their value is always equal to `1`). In the *complex* datatype, the first value corresponds to the real part of the complex number, while the second, to its imaginary part.
 
-Codes: 
+Datatypes Classes: 
 
 ```
 Pattern: 0x00
