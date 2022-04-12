@@ -1,11 +1,11 @@
-# MTBFile
+# MTB Library
 Binary File Format for sparse matrices. This library includes C/C++ routines for reading/writing files in this format as well as a program to convert MTX ([Matrix Market](https://math.nist.gov/MatrixMarket/formats.html)) file to the MTB file format. There are also some routines for reading files in MTX file format. Only the `coordinate` format of the MTX files are supported.
 
 ## MTB File Format
 
 The MTB file is composed by an header with the matrix properties, followed by the (non-zero) entries in the matrix.
 
-![MTBFile](https://user-images.githubusercontent.com/38725499/162996397-e11833ce-f7ef-475d-8d68-3970a5a29532.png)
+![MTBFile](https://user-images.githubusercontent.com/38725499/163049631-4ea34dec-e559-4487-bb5d-23b7a8355606.png)
 
 #### Matrix Type
 
@@ -53,45 +53,35 @@ All C++ routines of the MTB library are within the `mtb` namespace. Please check
 
 Routines in `mtx.hpp`:
 
-```
-	void mtx_read_header(std::ifstream &ifile, std::vector<std::string> &properties,
-	                     uint64_t &nrows, uint64_t &ncols, uint64_t &nz);
+```c++
+void mtx_read_header(std::ifstream &ifile, std::vector<std::string> &properties, uint64_t &nrows, uint64_t &ncols, uint64_t &nz);
 
-    template<typename T>
-	void mtx_read_data(std::ifstream &ifile, Triplet<T> *array, uint64_t *size, uint64_t nz,
-	                   bool is_weighted, bool is_symmetric);
+template<typename T>
+void mtx_read_data(std::ifstream &ifile, Triplet<T> *array, uint64_t *size, uint64_t nz, bool is_weighted, bool is_symmetric);
 
-	void mtx_to_mtb(std::string mtx_file, std::string mtb_file, bool sort_data);
+void mtx_to_mtb(std::string mtx_file, std::string mtb_file, bool sort_data);
 ```
 
 Routines in `mtb.hpp`:
 
-```
-	void mtb_read_header(std::ifstream &ifile, char &mat_type, char &datatype, char &type_size,
-	                     uint64_t &nrows, uint64_t &ncols, uint64_t &nz);
+```c++
+void mtb_read_header(std::ifstream &ifile, char &mat_type, char &datatype, char &type_size, uint64_t &nrows, uint64_t &ncols, uint64_t &nz);
 
-	void mtb_write_header(std::ofstream &ofile, char mat_type, char datatype, char type_size,
-	                      uint64_t nrows, uint64_t ncols, uint64_t nz);
-	template<typename T>
-	void mtb_read_data(std::ifstream &ifile, Triplet<T> *data, uint64_t nz, char mat_type,
-	                   char datatype, char type_size);
+void mtb_write_header(std::ofstream &ofile, char mat_type, char datatype, char type_size, uint64_t nrows, uint64_t ncols, uint64_t nz);
 
-    template<typename T>
-	void mtb_write_data(std::ofstream &ofile, Triplet<T> *data, uint64_t nz, char mat_type,
-	                    char datatype, char type_size);
+template<typename T>
+void mtb_read_data(std::ifstream &ifile, Triplet<T> *data, uint64_t nz, char mat_type, char datatype, char type_size);
+
+template<typename T>
+void mtb_write_data(std::ofstream &ofile, Triplet<T> *data, uint64_t nz, char mat_type, char datatype, char type_size);
 ```
 
 Routines in `compatibility.h`:
 
-```
-	void read_mtb_int(char filename[64], char *mat_type, char *datatype, char *type_size,
-	                  uint64_t *nrows, uint64_t *ncols, uint64_t *nz, triplet_int_t **array);
-
-    void read_mtb_sp(char filename[64], char *mat_type, char *datatype, char *type_size,
-	                  uint64_t *nrows, uint64_t *ncols, uint64_t *nz, triplet_sp_t **array);
-
-	void read_mtb_dp(char filename[64], char *mat_type, char *datatype, char *type_size,
-	                  uint64_t *nrows, uint64_t *ncols, uint64_t *nz, triplet_dp_t **array);
+```c++
+void read_mtb_int(char filename[64], char *mat_type, char *datatype, char *type_size, uint64_t *nrows, uint64_t *ncols, uint64_t *nz, triplet_int_t **array);
+void read_mtb_sp(char filename[64], char *mat_type, char *datatype, char *type_size, uint64_t *nrows, uint64_t *ncols, uint64_t *nz, triplet_sp_t **array);
+void read_mtb_dp(char filename[64], char *mat_type, char *datatype, char *type_size, uint64_t *nrows, uint64_t *ncols, uint64_t *nz, triplet_dp_t **array);
 ```
 
 ### MTX-to-MTB Converter
