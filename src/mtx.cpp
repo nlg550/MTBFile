@@ -114,9 +114,9 @@ namespace mtb
     						{
     							typename T::value_type imag, real;
 
+								real = strtod(++ptr, &ptr);
     							imag = strtod(++ptr, &ptr);
-    							real = strtod(++ptr, &ptr);
-    							triplet.val.real(real);
+								triplet.val.real(real);
     							triplet.val.imag(imag);
     						}
                         }
