@@ -1,3 +1,9 @@
+/*************************************************************************
+ Copyright (C) 2022 Instituto Superior Tecnico
+ This file is part of the MTB library, which is licensed under the
+ terms contained in the LICENSE file.
+ **************************************************************************/
+
 #include <cstdio>
 
 #include "../include/mtb.hpp"
