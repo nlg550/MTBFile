@@ -1,7 +1,7 @@
 /*************************************************************************
  Copyright (C) 2022 Instituto Superior Tecnico
 
- This file is part of the MOCCA library, which is licensed under the
+ This file is part of the MTB library, which is licensed under the
  terms contained in the LICENSE file.
  **************************************************************************/
 
