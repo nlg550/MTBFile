@@ -13,12 +13,9 @@
 #include <cstring>
 #include <memory>
 #include <stdexcept>
-#include <filesystem>
-#include <variant>
 
-#include "../include/common.hpp"
 #include "../include/mtb.hpp"
-#include "../include/progress_bar.hpp"
+
 
 namespace mtb
 {
@@ -62,82 +59,12 @@ namespace mtb
 	void mtx_sorted_data(std::string mtx_file, std::ifstream &ifile, std::ofstream &ofile,
 	                     uint64_t nz, char &mat_type, char &datatype, char &type_size)
 	{
-		// Read buffer
-		std::unique_ptr<char[]> input(new char[MTB_BUF_SIZE + 1]);
-
-		ProgressBar bar(60);
-		std::ptrdiff_t filesize = std::filesystem::file_size(mtx_file);
-		bar.init("Importing data from MTX...");
-
 		auto tmp_array = std::make_unique<Triplet<T>[]>(nz);
 		uint64_t size = 0;
 
-		while (ifile)
-		{
-			char *ptr = input.get();
+		bool is_weighted = (datatype != kPattern);
 
-			// Read a large data block from the file
-			ifile.read(ptr, MTB_BUF_SIZE);
-
-			if (ifile.gcount() > 0)
-			{
-				char *input_end = ptr + ifile.gcount();
-				*input_end = '\0';
-
-				// Find the end of the last complete line
-				char *last = std::strrchr(ptr, '\n');
-
-				if (last)
-				{
-					// If the last line is truncated, rewind file pointer
-					// to the beggining of this line, so it can be read again
-					// in the next block.
-					ifile.seekg(last - input_end, ifile.cur);
-					std::fill(last + 1, input_end, '\0');
-
-					// Parse each line into triplets and then place them in the write buffer.
-					// TODO: Replace strtol and strtod with std::from_char for better performance
-					while (ptr < last)
-					{
-						Triplet<T> triplet;
-						triplet.row = strtol(ptr, &ptr, 10) - 1;
-						triplet.col = strtol(++ptr, &ptr, 10) - 1;
-
-						if (datatype == kPattern)
-                        {
-							triplet.val = 1;
-                        } else
-                        {
-    						if constexpr (std::is_integral_v<T>) triplet.val = strtol(++ptr, &ptr, 10);
-    						else if constexpr (std::is_floating_point_v<T>) triplet.val = strtod(++ptr, &ptr);
-    						else
-    						{
-    							typename T::value_type imag, real;
-
-								real = strtod(++ptr, &ptr);
-    							imag = strtod(++ptr, &ptr);
-								triplet.val.real(real);
-    							triplet.val.imag(imag);
-    						}
-                        }
-
-						tmp_array[size++] = triplet;
-
-						if (mat_type == kSymmetricSparse)
-						{
-							std::swap(triplet.row, triplet.col);
-							tmp_array[size++] = triplet;
-						}
-
-						++ptr;
-					}
-
-					bar.update(last - input.get(), filesize);
-				}
-			}
-		}
-
-		bar.finish();
+		mtx_read_data(ifile, tmp_array.get(), &size, nz, is_weighted, false);
 
 		std::cerr << "Sorting Data... ";
 		std::sort(tmp_array.get(), tmp_array.get() + size, [](auto a, auto b){
@@ -169,7 +96,7 @@ namespace mtb
 
 			if (properties[2] == "coordinate" && properties[4] == "general") mat_type = kGeneralSparse;
 			else if (properties[2] == "coordinate" && properties[4] == "symmetric") mat_type = kSymmetricSparse;
-			else throw std::runtime_error("Error: Unsupported matrix mat_type!");
+			else throw std::runtime_error("Error: Unsupported matrix type!");
 
 			if (properties[3] == "pattern") datatype = kPattern;
 			else if (properties[3] == "real") datatype = kReal;
@@ -187,28 +114,27 @@ namespace mtb
 				mtb_write_header(ofile, mat_type, datatype, type_size, nrows, ncols, nonzeros);
 				std::cerr << "Done" << std::endl;
 
-				auto nz = nonzeros + (mat_type == kSymmetricSparse) * nonzeros;
-
 				if (sort_data)
                 {
 					switch (datatype)
                     {
 	                    case kPattern:
-	                    	mtx_sorted_data<int>(mtx_file, ifile, ofile, nz, mat_type, datatype, type_size);
+	                    	mtx_sorted_data<int>(mtx_file, ifile, ofile, nonzeros, mat_type, datatype, type_size);
 	                    break;
 
 	                    case kInteger:
-	                    	mtx_sorted_data<int>(mtx_file, ifile, ofile, nz, mat_type, datatype, type_size);
+	                    	mtx_sorted_data<int>(mtx_file, ifile, ofile, nonzeros, mat_type, datatype, type_size);
 	                    break;
 
 	                    case kReal:
-	                    	mtx_sorted_data<double>(mtx_file, ifile, ofile, nz, mat_type, datatype, type_size);
+	                    	mtx_sorted_data<double>(mtx_file, ifile, ofile, nonzeros, mat_type, datatype, type_size);
 	                    break;
 
 	                    case kComplex:
-	                    	mtx_sorted_data<std::complex<double>>(mtx_file, ifile, ofile, nz, mat_type, datatype, type_size);
+	                    	mtx_sorted_data<std::complex<double>>(mtx_file, ifile, ofile, nonzeros, mat_type, datatype, type_size);
 	                    break;
                     }
+
                 } else // Do not sort the data.
                 {
     				// Read buffer
@@ -220,7 +146,6 @@ namespace mtb
 
     				// Progress bar
     				ProgressBar bar(60);
-    				std::ptrdiff_t filesize = std::filesystem::file_size(mtx_file);
     				bar.init("Converting MTX to MTB...");
 
     				while (ifile)
@@ -286,7 +211,7 @@ namespace mtb
 
     							// Write the content of the buffer to the MTB file
     							if (output_size > 0) ofile.write(output.get(), output_size);
-    							bar.update(last - input.get(), filesize);
+    							bar.update(output_size, nonzeros * triplet_size);
     						}
     					}
     				}

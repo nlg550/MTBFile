@@ -6,7 +6,6 @@
  **************************************************************************/
 
 #include "../include/compatibility.h"
-#include "../include/common.hpp"
 #include "../include/mtb.hpp"
 
 void read_mtb_int(char filename[64], char *mat_type, char *datatype, char *type_size,
@@ -14,6 +13,8 @@ void read_mtb_int(char filename[64], char *mat_type, char *datatype, char *type_
 {
 	std::ifstream ifile(filename, std::fstream::binary);
 	mtb::mtb_read_header(ifile, *mat_type, *datatype, *type_size, *nrows, *ncols, *nz);
+
+	if (*mat_type == kSymmetricSparse) *nz *= 2;
 	*array = new triplet_int_t[*nz];
 
 	mtb::mtb_read_data(ifile, (mtb::Triplet<int> *) *array, *nz, *mat_type, *datatype, *type_size);
@@ -24,7 +25,10 @@ void read_mtb_sp(char filename[64], char *mat_type, char *datatype, char *type_s
 {
 	std::ifstream ifile(filename, std::fstream::binary);
 	mtb::mtb_read_header(ifile, *mat_type, *datatype, *type_size, *nrows, *ncols, *nz);
+
+	if (*mat_type == kSymmetricSparse) *nz *= 2;
 	*array = new triplet_sp_t[*nz];
+
 	mtb::mtb_read_data(ifile, (mtb::Triplet<float> *) *array, *nz, *mat_type, *datatype, *type_size);
 }
 
@@ -33,6 +37,9 @@ void read_mtb_dp(char filename[64], char *mat_type, char *datatype, char *type_s
 {
 	std::ifstream ifile(filename, std::fstream::binary);
 	mtb::mtb_read_header(ifile, *mat_type, *datatype, *type_size, *nrows, *ncols, *nz);
+
+	if (*mat_type == kSymmetricSparse) *nz *= 2;
 	*array = new triplet_dp_t[*nz];
+
 	mtb::mtb_read_data(ifile, (mtb::Triplet<double> *) *array, *nz, *mat_type, *datatype, *type_size);
 }

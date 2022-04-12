@@ -9,33 +9,54 @@
 #define _MTB_HANDLER_HPP_
 
 #include <fstream>
-#include <string>
-#include <cstring>
 #include <memory>
-#include <iostream>
+#include <stdexcept>
 
-#include "../include/common.hpp"
+#include "mtb_def.hpp"
 
 namespace mtb
 {
-	// Partial specialization to check if type T is complex or not
-	template<typename T>
-	struct is_complex: std::false_type {};
-
-	template<typename T>
-	struct is_complex<std::complex<T>> : std::true_type {};
-
+	//! Reads and parses the header of a MTB file. This routine do not check for
+	//! format errors.
+	//!
+	//! @param ifile[inout]		input stream to the MTB file
+	//! @param mat_type[out]	matrix type (@ref MTBMatrixType)
+	//! @param datatype[out]	datatype (@ref MTBDatatype)
+	//! @param type_size[out]	size of the data type (in bytes)
+	//! @param nrows[out]		number of rows
+	//! @param ncols[out]		number of columns
+	//! @param nz[out]			number of nonzero entries
 	void mtb_read_header(std::ifstream &ifile, char &mat_type, char &datatype, char &type_size,
 	                     uint64_t &nrows, uint64_t &ncols, uint64_t &nz);
 
+	//! Writes the header of a MTB file. This routine do not check for
+	//! format errors.
+	//!
+	//! @param ofile[inout]		output stream to the MTB file
+	//! @param mat_type[in]		matrix type (@ref MTBMatrixType)
+	//! @param datatype[in]		datatype (@ref MTBDatatype)
+	//! @param type_size[in]	size of the data type (in bytes)
+	//! @param nrows[in]		number of rows
+	//! @param ncols[in]		number of columns
+	//! @param nz[in]			number of nonzero entries
 	void mtb_write_header(std::ofstream &ofile, char mat_type, char datatype, char type_size,
 	                      uint64_t nrows, uint64_t ncols, uint64_t nz);
 
+	//! Reads and parses the matrix entries of a MTB file. The entries are then
+	//! stored in a @ref Triplet array. This routine do not check for errors in the MTB file.
+	//!
+	//! This routine assumes a **little endian** format.
+	//!
+	//! @param ifile[inout]			input file stream to the MTB file
+	//! @param data[out]			triplet array containing the entries of the matrix
+	//! @param nz[in]				number of non-zeros entries
+	//! @param mat_type[in]			matrix type (@ref MTBMatrixType)
+	//! @param datatype[in]			datatype (@ref MTBDatatype)
+	//! @param type_size[in]		size of the data type (in bytes)
 	template<typename T>
 	void mtb_read_data(std::ifstream &ifile, Triplet<T> *data, uint64_t nz, char mat_type,
 	                   char datatype, char type_size)
 	{
-		nz += (mat_type == kSymmetricSparse) * nz;
 		int batch_size = MTB_BUF_SIZE + (mat_type == kSymmetricSparse) * MTB_BUF_SIZE;
 		int step_size = 1 + (mat_type == kSymmetricSparse);
 		int raw_max_size = MTB_BUF_SIZE * (2 * sizeof(uint64_t) + type_size);
@@ -62,15 +83,15 @@ namespace mtb
 				data[k + i].row = row;
 
 				switch (datatype)
-                {
-	                case kPattern:
-	                	data[k + i].val = (T) 1.0;
-	                break;
+				{
+					case kPattern:
+						data[k + i].val = (T) 1.0;
+						break;
 
-	                case kInteger:
+					case kInteger:
 
-	                	// Assuming LITTLE ENDIAN
-	                	union
+						// Assuming LITTLE ENDIAN
+						union
 						{
 							int64_t integer;
 							char bytes[sizeof(int64_t)];
@@ -81,56 +102,105 @@ namespace mtb
 
 						data[k + i].val = val.integer;
 
-	                break;
+						break;
 
-	                case kReal:
-
-	                if (type_size == 8)
-                    {
-						union
+					case kReal:
+						if (type_size == 8)
 						{
-							double fp;
-							char bytes[sizeof(double)];
-						} val;
+							union
+							{
+									double fp;
+									char bytes[sizeof(double)];
+							} val;
 
-						std::memcpy(&val.bytes, ptr, type_size);
-						ptr += type_size;
+							std::memcpy(&val.bytes, ptr, type_size);
+							ptr += type_size;
 
-						data[k + i].val = val.fp;
+							data[k + i].val = val.fp;
 
-                    } else
-                    {
-						union
+						} else if (type_size == 4)
 						{
-							float fp;
-							char bytes[sizeof(float)];
-						} val;
+							union
+							{
+									float fp;
+									char bytes[sizeof(float)];
+							} val;
 
-						std::memcpy(&val.bytes, ptr, type_size);
-						ptr += type_size;
+							std::memcpy(&val.bytes, ptr, type_size);
+							ptr += type_size;
 
-						data[k + i].val = val.fp;
-                    }
+							data[k + i].val = val.fp;
+						}
 
-	                break;
+						break;
 
-	                default:
-	                	throw std::runtime_error("Error: Unsupported MTB type!");
-	                break;
-                }
+					case kComplex:
+						if constexpr (is_complex<T>())
+                        {
+							if (type_size == 8)
+							{
+								union
+								{
+									double fp;
+									char bytes[sizeof(double)];
+								} real, imag;
+
+								std::memcpy(&real.bytes, ptr, type_size);
+								ptr += type_size;
+
+								std::memcpy(&imag.bytes, ptr, type_size);
+								ptr += type_size;
+
+								data[k + i].val.real(real.fp);
+								data[k + i].val.imag(imag.fp);
+
+							} else if (type_size == 4)
+							{
+								union
+								{
+									float fp;
+									char bytes[sizeof(float)];
+								} real, imag;
+
+								std::memcpy(&real.bytes, ptr, type_size);
+								ptr += type_size;
+
+								std::memcpy(&imag.bytes, ptr, type_size);
+								ptr += type_size;
+
+								data[k + i].val.real(real.fp);
+								data[k + i].val.imag(imag.fp);
+							}
+                        }
+
+						break;
+
+					default:
+						throw std::runtime_error("Error: Unsupported MTB type!");
+						break;
+				}
 
 				if (mat_type == kSymmetricSparse)
-                {
+				{
 					std::swap(row, col);
 					data[k + i + 1].col = col;
 					data[k + i + 1].row = row;
 					data[k + i + 1].val = data[k + i].val;
-                }
+				}
 			}
 		}
 
 	}
 
+	//! Writes the matrix entries are stored as a @ref Triplet array in a MTB file.
+	//! This routine do not check for errors in the MTB file.
+	//!
+	//! @param ofile[inout]			output file stream to the MTB file
+	//! @param data[in]				triplet array containing the entries of the matrix
+	//! @param nz[in]				number of non-zeros entries
+	//! @param mat_type[in]			matrix type (@ref MTBMatrixType)
+	//! @param datatype[in]			datatype (@ref MTBDatatype)
+	//! @param type_size[in]		size of the data type (in bytes)
 	template<typename T>
 	void mtb_write_data(std::ofstream &ofile, Triplet<T> *data, uint64_t nz, char mat_type,
 	                    char datatype, char type_size)
