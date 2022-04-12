@@ -49,7 +49,7 @@ There is a combatibility layer for C programs, but the final linking should alwa
 
 ### API
 
-All C++ routines of the MTB library are within the `mtb` namespace. Please check the headers for each routine documentation.
+All C++ routines of the MTB library are within the `mtb` namespace. Please check the headers for the full documentation.
 
 Routines in `mtx.hpp`:
 
