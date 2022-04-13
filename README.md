@@ -5,9 +5,8 @@ Binary File Format for sparse matrices. This library includes C/C++ routines for
 
 The MTB file is composed by an header with the matrix properties, followed by the (non-zero) entries in the matrix.
 
-![MTBFile](https://user-images.githubusercontent.com/38725499/163135575-3b48f9d5-771e-4e67-8733-1089d775f622.png#gh-light-mode-only)
-![MTBFile_dark](https://user-images.githubusercontent.com/38725499/163136395-c3734428-c903-4072-8852-df5af3d8e06b.png#gh-dark-mode-only)
-
+![MTBFile_dark](https://user-images.githubusercontent.com/38725499/163136796-a94b56b1-8ce4-4a51-9db8-ae896096bb3c.png#gh-dark-mode-only)
+![MTBFile](https://user-images.githubusercontent.com/38725499/163136804-14c12296-8e9a-4bd3-84f2-c48fbb5e4ec2.png#gh-light-mode-only)
 
 #### Matrix Type
 
