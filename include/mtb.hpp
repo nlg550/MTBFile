@@ -180,7 +180,7 @@ namespace mtb
 						break;
 				}
 
-				if (mat_type == kSymmetricSparse)
+				if (mat_type == kSymmetricSparse && col < row)
 				{
 					std::swap(row, col);
 					data[k + i + 1].col = col;

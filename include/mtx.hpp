@@ -103,7 +103,7 @@ namespace mtb
 
 						array[(*size)++] = triplet;
 
-						if (is_symmetric)
+						if (is_symmetric && triplet.col < triplet.row)
 						{
 							std::swap(triplet.row, triplet.col);
 							array[(*size)++] = triplet;
